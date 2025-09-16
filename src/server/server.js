@@ -8,11 +8,15 @@ const io = require('socket.io')(http);
 const SAT = require('sat');
 
 const gameLogic = require('./game-logic');
+const loggingRepositry = require('./repositories/logging-repository');
+const chatRepository = require('./repositories/chat-repository');
 const config = require('../../config');
 const util = require('./lib/util');
 const mapUtils = require('./map/map');
+const {getPosition} = require("./lib/entityUtils");
 
 let map = new mapUtils.Map(config);
+
 let sockets = {};
 let spectators = [];
 const INIT_MASS_LOG = util.mathLog(config.defaultPlayerMass, config.slowBase);
@@ -20,45 +24,21 @@ const INIT_MASS_LOG = util.mathLog(config.defaultPlayerMass, config.slowBase);
 let leaderboard = [];
 let leaderboardChanged = false;
 
-// Game state
-let gameMode = 'practice'; // practice or competitive
+// Round system
+let gameState = 'practice';
 let roundNumber = 0;
 let roundStartTime = null;
-let connectedPlayers = 0;
-let playersMap = new Map(); // Track actual players
+let breakEndTime = null;
+let countdownEndTime = null;
+let lastWinner = null;
 
 const Vector = SAT.Vector;
 
 app.use(express.static(__dirname + '/../client'));
 
-function getGameStatus() {
-    const now = Date.now();
-    
-    if (gameMode === 'practice') {
-        return {
-            state: 'practice',
-            playersConnected: playersMap.size,
-            playersNeeded: config.minPlayersToStart,
-            message: `Practice - ${playersMap.size}/${config.minPlayersToStart} for round`
-        };
-    } else {
-        const elapsed = now - roundStartTime;
-        const remaining = Math.max(0, config.roundTime - elapsed);
-        return {
-            state: 'competitive',
-            roundNumber: roundNumber,
-            timeRemaining: Math.floor(remaining / 1000),
-            playersConnected: playersMap.size
-        };
-    }
-}
-
 io.on('connection', function (socket) {
     let type = socket.handshake.query.type;
-    console.log('User connected:', type);
-    
-    socket.emit('gameStatus', getGameStatus());
-    
+    console.log('User has connected: ', type);
     switch (type) {
         case 'player':
             addPlayer(socket);
@@ -66,340 +46,486 @@ io.on('connection', function (socket) {
         case 'spectator':
             addSpectator(socket);
             break;
+        default:
+            console.log('Unknown user type, not doing anything.');
     }
 });
 
 function generateSpawnpoint() {
     let radius = util.massToRadius(config.defaultPlayerMass);
-    return util.randomPosition(radius);
+    return getPosition(config.newPlayerInitialPosition === 'farthest', radius, map.players.data)
+}
+
+function getGameStatus() {
+    const now = Date.now();
+    const actualPlayerCount = map.players.data.length;
+    
+    if (gameState === 'practice') {
+        return {
+            state: 'practice',
+            playersConnected: actualPlayerCount,
+            playersNeeded: config.minPlayersToStart || 5,
+            message: `PRACTICE MODE - ${actualPlayerCount}/${config.minPlayersToStart || 5} players`
+        };
+    } else if (gameState === 'countdown') {
+        const remaining = Math.max(0, Math.floor((countdownEndTime - now) / 1000));
+        return {
+            state: 'countdown',
+            timeRemaining: remaining,
+            roundNumber: roundNumber + 1
+        };
+    } else if (gameState === 'active') {
+        const elapsed = now - roundStartTime;
+        const remaining = Math.max(0, config.roundTime - elapsed);
+        return {
+            state: 'active',
+            roundNumber: roundNumber,
+            timeRemaining: Math.floor(remaining / 1000)
+        };
+    } else if (gameState === 'break') {
+        const remaining = Math.max(0, Math.floor((breakEndTime - now) / 1000));
+        return {
+            state: 'break',
+            timeRemaining: remaining,
+            winner: lastWinner
+        };
+    }
+    
+    return {
+        state: 'practice',
+        playersConnected: actualPlayerCount,
+        playersNeeded: config.minPlayersToStart || 5
+    };
 }
 
 const addPlayer = (socket) => {
-    let currentPlayer = null;
-    let playerName = null;
+    var currentPlayer = new mapUtils.playerUtils.Player(socket.id);
 
-    // Send welcome immediately so player can spawn
-    socket.emit('welcome', { id: socket.id }, {
-        width: config.gameWidth,
-        height: config.gameHeight
-    });
-
-    socket.on('gotit', function (player) {
-        console.log('[INFO] Player connecting:', player.name);
-        
-        if (!util.validNick(player.name)) {
-            socket.emit('kick', 'Invalid username');
-            socket.disconnect();
-            return;
-        }
-        
-        playerName = player.name.replace(/(<([^>]+)>)/ig, '');
-        
-        // Create player
-        currentPlayer = new mapUtils.playerUtils.Player(socket.id);
-        currentPlayer.name = playerName;
-        currentPlayer.screenWidth = player.screenWidth;
-        currentPlayer.screenHeight = player.screenHeight;
-        currentPlayer.target = player.target || {x: 0, y: 0};
-        
-        // Initialize player position
+    socket.on('gotit', function (clientPlayerData) {
+        console.log('[INFO] Player ' + (clientPlayerData.name || 'unnamed') + ' connecting!');
         currentPlayer.init(generateSpawnpoint(), config.defaultPlayerMass);
-        
-        // Add to game
-        map.players.pushNew(currentPlayer);
-        map.food.addNew(3);
-        sockets[socket.id] = socket;
-        playersMap.set(socket.id, playerName);
-        
-        console.log('[INFO] Player spawned:', playerName);
-        io.emit('playerJoin', { name: playerName });
-        
-        // Update status for everyone
-        io.emit('gameStatus', getGameStatus());
-        
-        // Check if we should start competitive round
-        if (gameMode === 'practice' && playersMap.size >= config.minPlayersToStart) {
-            startCompetitiveRound();
+
+        if (map.players.findIndexByID(socket.id) > -1) {
+            console.log('[INFO] Player ID is already connected, kicking.');
+            socket.disconnect();
+        } else {
+            console.log('[INFO] Player ' + (clientPlayerData.name || 'unnamed') + ' connected!');
+            sockets[socket.id] = socket;
+
+            // No validation - accept anything
+            const playerName = clientPlayerData.name || '';
+            currentPlayer.name = playerName;
+            currentPlayer.screenWidth = clientPlayerData.screenWidth;
+            currentPlayer.screenHeight = clientPlayerData.screenHeight;
+            currentPlayer.target = { x: 0, y: 0 };
+
+            map.players.pushNew(currentPlayer);
+            io.emit('playerJoin', { name: currentPlayer.name });
+            console.log('Total players: ' + map.players.data.length);
         }
-    });
 
-    socket.on('respawn', () => {
-        console.log('[INFO] Respawn request');
-        socket.emit('welcome', { id: socket.id }, {
-            width: config.gameWidth,
-            height: config.gameHeight
-        });
-    });
-
-    socket.on('disconnect', () => {
-        if (currentPlayer) {
-            map.players.removePlayerByID(socket.id);
-        }
-        playersMap.delete(socket.id);
-        delete sockets[socket.id];
-        
-        if (playerName) {
-            console.log('[INFO] Player disconnected:', playerName);
-            io.emit('playerDisconnect', { name: playerName });
-        }
-        
-        io.emit('gameStatus', getGameStatus());
-    });
-
-    socket.on('playerChat', (data) => {
-        if (!playerName) return;
-        
-        let message = (data.message || '').substring(0, 35);
-        console.log('[CHAT]', playerName + ':', message);
-        
-        socket.broadcast.emit('serverSendPlayerChat', {
-            sender: playerName,
-            message: message
-        });
-    });
-
-    socket.on('0', (target) => {
-        if (!currentPlayer) return;
-        currentPlayer.lastHeartbeat = Date.now();
-        currentPlayer.target = target;
-    });
-
-    socket.on('1', () => {
-        if (!currentPlayer) return;
-        const minMass = config.defaultPlayerMass + config.fireFood;
-        for (let cell of currentPlayer.cells) {
-            if (cell.mass >= minMass) {
-                cell.mass -= config.fireFood;
-                currentPlayer.massTotal -= config.fireFood;
-                map.massFood.addNew(currentPlayer, 0, config.fireFood);
-            }
-        }
-    });
-
-    socket.on('2', () => {
-        if (!currentPlayer) return;
-        currentPlayer.userSplit(config.limitSplit, config.defaultPlayerMass);
-    });
-
-    socket.on('windowResized', (data) => {
-        if (currentPlayer) {
-            currentPlayer.screenWidth = data.screenWidth;
-            currentPlayer.screenHeight = data.screenHeight;
-        }
     });
 
     socket.on('pingcheck', () => {
         socket.emit('pongcheck');
     });
-};
+
+    socket.on('windowResized', (data) => {
+        currentPlayer.screenWidth = data.screenWidth;
+        currentPlayer.screenHeight = data.screenHeight;
+    });
+
+    socket.on('respawn', () => {
+        map.players.removePlayerByID(currentPlayer.id);
+        socket.emit('welcome', currentPlayer, {
+            width: config.gameWidth,
+            height: config.gameHeight
+        });
+        console.log('[INFO] User ' + currentPlayer.name + ' has respawned');
+    });
+
+    socket.on('disconnect', () => {
+        map.players.removePlayerByID(currentPlayer.id);
+        console.log('[INFO] User ' + currentPlayer.name + ' has disconnected');
+        socket.broadcast.emit('playerDisconnect', { name: currentPlayer.name });
+    });
+
+    socket.on('playerChat', (data) => {
+        if (!data) return;
+        var _sender = data.sender || '';
+        var _message = data.message || '';
+
+        if (config.logChat === 1) {
+            console.log('[CHAT] [' + (new Date()).getHours() + ':' + (new Date()).getMinutes() + '] ' + _sender + ': ' + _message);
+        }
+
+        socket.broadcast.emit('serverSendPlayerChat', {
+            sender: currentPlayer.name,
+            message: _message.substring(0, 35)
+        });
+
+        if (chatRepository && chatRepository.logChatMessage) {
+            chatRepository.logChatMessage(_sender, _message, socket.handshake.address)
+                .catch((err) => console.error("Error when attempting to log chat message", err));
+        }
+    });
+
+    socket.on('pass', async (data) => {
+        const password = data[0];
+        if (password === config.adminPass) {
+            console.log('[ADMIN] ' + currentPlayer.name + ' just logged in as an admin.');
+            socket.emit('serverMSG', 'Welcome back ' + currentPlayer.name);
+            socket.broadcast.emit('serverMSG', currentPlayer.name + ' just logged in as an admin.');
+            currentPlayer.admin = true;
+        } else {
+            console.log('[ADMIN] ' + currentPlayer.name + ' attempted to log in with the incorrect password: ' + password);
+            socket.emit('serverMSG', 'Password incorrect, attempt logged.');
+            if (loggingRepositry && loggingRepositry.logFailedLoginAttempt) {
+                loggingRepositry.logFailedLoginAttempt(currentPlayer.name, socket.handshake.address)
+                    .catch((err) => console.error("Error when attempting to log failed login attempt", err));
+            }
+        }
+    });
+
+    socket.on('kick', (data) => {
+        if (!currentPlayer.admin) {
+            socket.emit('serverMSG', 'You are not permitted to use this command.');
+            return;
+        }
+
+        var reason = '';
+        var worked = false;
+        for (let playerIndex in map.players.data) {
+            let player = map.players.data[playerIndex];
+            if (player.name === data[0] && !player.admin && !worked) {
+                if (data.length > 1) {
+                    for (var f = 1; f < data.length; f++) {
+                        if (f === data.length) {
+                            reason = reason + data[f];
+                        }
+                        else {
+                            reason = reason + data[f] + ' ';
+                        }
+                    }
+                }
+                if (reason !== '') {
+                    console.log('[ADMIN] User ' + player.name + ' kicked successfully by ' + currentPlayer.name + ' for reason ' + reason);
+                }
+                else {
+                    console.log('[ADMIN] User ' + player.name + ' kicked successfully by ' + currentPlayer.name);
+                }
+                socket.emit('serverMSG', 'User ' + player.name + ' was kicked by ' + currentPlayer.name);
+                sockets[player.id].emit('kick', reason);
+                sockets[player.id].disconnect();
+                map.players.removePlayerByIndex(playerIndex);
+                worked = true;
+            }
+        }
+        if (!worked) {
+            socket.emit('serverMSG', 'Could not locate user or user is an admin.');
+        }
+    });
+
+    // Heartbeat function, update everytime.
+    socket.on('0', (target) => {
+        currentPlayer.lastHeartbeat = new Date().getTime();
+        if (target.x !== currentPlayer.x || target.y !== currentPlayer.y) {
+            currentPlayer.target = target;
+        }
+    });
+
+    socket.on('1', function () {
+        // Fire food.
+        const minCellMass = config.defaultPlayerMass + config.fireFood;
+        for (let i = 0; i < currentPlayer.cells.length; i++) {
+            if (currentPlayer.cells[i].mass >= minCellMass) {
+                currentPlayer.changeCellMass(i, -config.fireFood);
+                map.massFood.addNew(currentPlayer, i, config.fireFood);
+            }
+        }
+    });
+
+    socket.on('2', () => {
+        currentPlayer.userSplit(config.limitSplit, config.defaultPlayerMass);
+    });
+}
 
 const addSpectator = (socket) => {
-    spectators.push(socket.id);
-    sockets[socket.id] = socket;
-    
-    socket.emit('welcome', { id: socket.id }, {
+    socket.on('gotit', function () {
+        sockets[socket.id] = socket;
+        spectators.push(socket.id);
+        io.emit('playerJoin', { name: '' });
+    });
+
+    socket.emit("welcome", {}, {
         width: config.gameWidth,
         height: config.gameHeight
     });
-    
-    socket.on('disconnect', () => {
-        spectators = spectators.filter(id => id !== socket.id);
-        delete sockets[socket.id];
-    });
-};
-
-function startCompetitiveRound() {
-    console.log('[ROUND] Starting competitive round!');
-    
-    gameMode = 'competitive';
-    roundNumber++;
-    roundStartTime = Date.now();
-    
-    io.emit('serverMSG', '🎮 ROUND ' + roundNumber + ' STARTED!');
-    io.emit('serverMSG', '🔄 All scores reset! 10 minutes to win!');
-    
-    // Reset all players
-    for (let player of map.players.data) {
-        player.massTotal = config.defaultPlayerMass;
-        player.cells = [];
-        player.init(generateSpawnpoint(), config.defaultPlayerMass);
-    }
-    
-    // Reset food
-    map.food.data = [];
-    map.food.addNew(config.maxFood);
-    
-    io.emit('gameStatus', getGameStatus());
-}
-
-function endRound() {
-    // Find winner
-    if (map.players.data.length > 0) {
-        map.players.data.sort((a, b) => b.massTotal - a.massTotal);
-        let winner = map.players.data[0];
-        
-        io.emit('serverMSG', '🏆 WINNER: ' + winner.name + ' with ' + Math.round(winner.massTotal) + ' mass!');
-    }
-    
-    // Back to practice
-    gameMode = 'practice';
-    io.emit('serverMSG', 'Back to practice mode');
-    io.emit('gameStatus', getGameStatus());
 }
 
 const tickPlayer = (currentPlayer) => {
-    if (!currentPlayer) return;
-    
-    if (currentPlayer.lastHeartbeat < Date.now() - config.maxHeartbeatInterval) {
-        if (sockets[currentPlayer.id]) {
-            sockets[currentPlayer.id].emit('kick', 'Timeout');
-            sockets[currentPlayer.id].disconnect();
-        }
-        return;
+    if (currentPlayer.lastHeartbeat < new Date().getTime() - config.maxHeartbeatInterval) {
+        sockets[currentPlayer.id].emit('kick', 'Last heartbeat received over ' + config.maxHeartbeatInterval + ' ago.');
+        sockets[currentPlayer.id].disconnect();
     }
 
     currentPlayer.move(config.slowBase, config.gameWidth, config.gameHeight, INIT_MASS_LOG);
 
-    // Collision detection code...
     const isEntityInsideCircle = (point, circle) => {
         return SAT.pointInCircle(new Vector(point.x, point.y), circle);
     };
 
-    for (let cell of currentPlayer.cells) {
-        if (!cell) continue;
-        
-        let cellCircle = cell.toCircle();
-        
-        // Eat food
-        let foodEaten = [];
-        for (let i = 0; i < map.food.data.length; i++) {
-            if (map.food.data[i] && isEntityInsideCircle(map.food.data[i], cellCircle)) {
-                foodEaten.push(i);
-                cell.mass += config.foodMass;
-                currentPlayer.massTotal += config.foodMass;
-            }
+    const canEatMass = (cell, cellCircle, cellIndex, mass) => {
+        if (isEntityInsideCircle(mass, cellCircle)) {
+            if (mass.id === currentPlayer.id && mass.speed > 0 && cellIndex === mass.num)
+                return false;
+            if (cell.mass > mass.mass * 1.1)
+                return true;
         }
-        
-        // Remove eaten food
-        foodEaten.sort((a, b) => b - a);
-        for (let i of foodEaten) {
-            map.food.data.splice(i, 1);
-        }
-        
-        // Respawn food
-        if (foodEaten.length > 0) {
-            map.food.addNew(foodEaten.length);
-        }
-        
-        cell.recalculateRadius();
+
+        return false;
+    };
+
+    const canEatVirus = (cell, cellCircle, virus) => {
+        return virus.mass < cell.mass && isEntityInsideCircle(virus, cellCircle)
     }
+
+    const cellsToSplit = [];
+    for (let cellIndex = 0; cellIndex < currentPlayer.cells.length; cellIndex++) {
+        const currentCell = currentPlayer.cells[cellIndex];
+
+        const cellCircle = currentCell.toCircle();
+
+        const eatenFoodIndexes = util.getIndexes(map.food.data, food => isEntityInsideCircle(food, cellCircle));
+        const eatenMassIndexes = util.getIndexes(map.massFood.data, mass => canEatMass(currentCell, cellCircle, cellIndex, mass));
+        const eatenVirusIndexes = util.getIndexes(map.viruses.data, virus => canEatVirus(currentCell, cellCircle, virus));
+
+        if (eatenVirusIndexes.length > 0) {
+            cellsToSplit.push(cellIndex);
+            map.viruses.delete(eatenVirusIndexes)
+        }
+
+        let massGained = eatenMassIndexes.reduce((acc, index) => acc + map.massFood.data[index].mass, 0);
+
+        map.food.delete(eatenFoodIndexes);
+        map.massFood.remove(eatenMassIndexes);
+        massGained += (eatenFoodIndexes.length * config.foodMass);
+        currentPlayer.changeCellMass(cellIndex, massGained);
+    }
+    currentPlayer.virusSplit(cellsToSplit, config.limitSplit, config.defaultPlayerMass);
 };
 
 const tickGame = () => {
     map.players.data.forEach(tickPlayer);
-    
-    if (map.massFood) {
-        map.massFood.move(config.gameWidth, config.gameHeight);
-    }
+    map.massFood.move(config.gameWidth, config.gameHeight);
 
-    // Player collisions
-    map.players.handleCollisions((eaten, eater) => {
-        let eatenCell = map.players.getCell(eaten.playerIndex, eaten.cellIndex);
-        if (!eatenCell) return;
+    map.players.handleCollisions(function (gotEaten, eater) {
+        const cellGotEaten = map.players.getCell(gotEaten.playerIndex, gotEaten.cellIndex);
 
-        map.players.data[eater.playerIndex].changeCellMass(eater.cellIndex, eatenCell.mass);
+        map.players.data[eater.playerIndex].changeCellMass(eater.cellIndex, cellGotEaten.mass);
 
-        let died = map.players.removeCell(eaten.playerIndex, eaten.cellIndex);
-        if (died) {
-            let deadPlayer = map.players.data[eaten.playerIndex];
-            if (deadPlayer && sockets[deadPlayer.id]) {
-                sockets[deadPlayer.id].emit('RIP');
-                io.emit('playerDied', { name: deadPlayer.name });
-            }
-            map.players.removePlayerByIndex(eaten.playerIndex);
+        const playerDied = map.players.removeCell(gotEaten.playerIndex, gotEaten.cellIndex);
+        if (playerDied) {
+            let playerGotEaten = map.players.data[gotEaten.playerIndex];
+            io.emit('playerDied', { name: playerGotEaten.name });
+            sockets[playerGotEaten.id].emit('RIP');
+            map.players.removePlayerByIndex(gotEaten.playerIndex);
         }
     });
+
 };
+
+const calculateLeaderboard = () => {
+    const topPlayers = map.players.getTopPlayers();
+
+    if (leaderboard.length !== topPlayers.length) {
+        leaderboard = topPlayers;
+        leaderboardChanged = true;
+    } else {
+        for (let i = 0; i < leaderboard.length; i++) {
+            if (leaderboard[i].id !== topPlayers[i].id) {
+                leaderboard = topPlayers;
+                leaderboardChanged = true;
+                break;
+            }
+        }
+    }
+}
 
 const gameloop = () => {
     if (map.players.data.length > 0) {
         calculateLeaderboard();
         map.players.shrinkCells(config.massLossRate, config.defaultPlayerMass, config.minMassLoss);
     }
-    
+
     map.balanceMass(config.foodMass, config.gameMass, config.maxFood, config.maxVirus);
+    checkRoundState();
+};
+
+function checkRoundState() {
+    if (!config.enableRounds) return;
     
-    // Check round end
-    if (gameMode === 'competitive') {
-        let elapsed = Date.now() - roundStartTime;
+    const now = Date.now();
+    const playerCount = map.players.data.length;
+    
+    if (gameState === 'practice') {
+        if (playerCount >= (config.minPlayersToStart || 5)) {
+            startCountdown();
+        }
+    } else if (gameState === 'active') {
+        const elapsed = now - roundStartTime;
         if (elapsed >= config.roundTime) {
             endRound();
         }
     }
-};
+}
 
-const calculateLeaderboard = () => {
-    let topPlayers = map.players.getTopPlayers();
+function startCountdown() {
+    gameState = 'countdown';
+    countdownEndTime = Date.now() + 10000;
     
-    if (leaderboard.length !== topPlayers.length) {
-        leaderboard = topPlayers;
-        leaderboardChanged = true;
-    }
-};
+    io.emit('serverMSG', '🚀 Round starting in 10 seconds! Resetting all players...');
+    io.emit('countdown', { seconds: 10 });
+    
+    resetAllPlayers();
+    
+    setTimeout(() => {
+        if (gameState === 'countdown') {
+            startRound();
+        }
+    }, 10000);
+}
 
-const sendUpdates = () => {
-    io.emit('gameStatus', getGameStatus());
+function startRound() {
+    roundNumber++;
+    roundStartTime = Date.now();
+    gameState = 'active';
     
+    io.emit('serverMSG', `🎮 ROUND ${roundNumber} STARTED! 10 minutes - GO!`);
+    io.emit('roundStart', { round: roundNumber });
+}
+
+function endRound() {
+    gameState = 'break';
+    breakEndTime = Date.now() + config.roundBreakTime;
+    
+    let winner = null;
+    let topMass = 0;
     for (let player of map.players.data) {
-        if (!sockets[player.id]) continue;
-        
-        let visibleFood = map.food.data;
-        let visibleViruses = map.viruses.data;
-        let visibleMass = map.massFood.data;
-        let visiblePlayers = map.players.data.map(p => ({
-            x: p.x,
-            y: p.y,
-            cells: p.cells,
-            massTotal: Math.round(p.massTotal),
-            hue: p.hue,
-            id: p.id,
-            name: p.name
-        }));
-        
-        sockets[player.id].emit('serverTellPlayerMove', 
-            {
-                x: player.x,
-                y: player.y,
-                cells: player.cells,
-                massTotal: Math.round(player.massTotal),
-                hue: player.hue,
-                id: player.id,
-                name: player.name
-            },
-            visiblePlayers, 
-            visibleFood, 
-            visibleMass, 
-            visibleViruses
-        );
-        
-        if (leaderboardChanged) {
-            sockets[player.id].emit('leaderboard', {
-                players: map.players.data.length,
-                leaderboard: leaderboard
-            });
+        if (player.massTotal > topMass) {
+            topMass = player.massTotal;
+            winner = player;
         }
     }
     
+    if (winner) {
+        lastWinner = {
+            name: winner.name || 'Anonymous',
+            mass: Math.round(winner.massTotal)
+        };
+        
+        io.emit('serverMSG', `🏆 ROUND ${roundNumber} WINNER: ${lastWinner.name}`);
+        io.emit('serverMSG', `Final mass: ${lastWinner.mass}`);
+        io.emit('roundEnd', { winner: lastWinner });
+    }
+    
+    setTimeout(() => {
+        if (map.players.data.length >= (config.minPlayersToStart || 5)) {
+            startCountdown();
+        } else {
+            gameState = 'practice';
+            io.emit('serverMSG', `⏸️ PRACTICE MODE - Need more players`);
+        }
+    }, config.roundBreakTime);
+}
+
+function resetAllPlayers() {
+    for (let player of map.players.data) {
+        player.init(generateSpawnpoint(), config.defaultPlayerMass);
+    }
+    
+    map.food.data = [];
+    map.viruses.data = [];
+    map.massFood.data = [];
+    map.balanceMass(config.foodMass, config.gameMass, config.maxFood, config.maxVirus);
+    
+    io.emit('serverMSG', '🔄 All players reset!');
+}
+
+let lastStatusSent = null;
+const sendUpdates = () => {
+    const currentStatus = getGameStatus();
+    
+    // Pošli status len ak sa zmenil
+    if (!lastStatusSent || JSON.stringify(currentStatus) !== JSON.stringify(lastStatusSent)) {
+        io.emit('gameStatus', currentStatus);
+        lastStatusSent = currentStatus;
+    }
+    
+    // Optimalizované posielanie dát
+    const visibleData = new Map();
+    
+    // Predpočítaj viditeľné objekty
+    map.enumerateWhatPlayersSee(function (playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses) {
+        if (sockets[playerData.id] && sockets[playerData.id].connected) {
+            // Pošli len ak je socket aktívny
+            sockets[playerData.id].emit('serverTellPlayerMove', playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses);
+            if (leaderboardChanged) {
+                sendLeaderboard(sockets[playerData.id]);
+            }
+        }
+    });
+    
+    // Update spectators
+    spectators = spectators.filter(id => sockets[id] && sockets[id].connected);
+    spectators.forEach(updateSpectator);
+
     leaderboardChanged = false;
 };
 
-setInterval(tickGame, 1000 / 60);
-setInterval(gameloop, 1000);
-setInterval(sendUpdates, 1000 / config.networkUpdateFactor);
+const sendLeaderboard = (socket) => {
+    socket.emit('leaderboard', {
+        players: map.players.data.length,
+        leaderboard
+    });
+}
+const updateSpectator = (socketID) => {
+    if (!sockets[socketID]) return;
+    
+    let playerData = {
+        x: config.gameWidth / 2,
+        y: config.gameHeight / 2,
+        cells: [],
+        massTotal: 0,
+        hue: 100,
+        id: socketID,
+        name: ''
+    };
+    sockets[socketID].emit('serverTellPlayerMove', playerData, map.players.data, map.food.data, map.massFood.data, map.viruses.data);
+    if (leaderboardChanged) {
+        sendLeaderboard(sockets[socketID]);
+    }
+}
 
-console.log('[GAME] Server started - 3000x3000 map');
-console.log('[GAME] Practice mode - need', config.minPlayersToStart, 'players for competitive round');
+// Optimalizované intervaly pre menej memory usage
+setInterval(tickGame, 1000 / 45);  // 45 FPS namiesto 60
+setInterval(gameloop, 1500);       // Každých 1.5 sekundy
+setInterval(sendUpdates, 1000 / 25); // 25 updatov za sekundu
 
-http.listen(config.port, config.host, () => {
-    console.log('[DEBUG] Listening on', config.host + ':' + config.port);
-});
+// Garbage collection helper - čistí memory každých 30 sekúnd
+setInterval(() => {
+    if (global.gc) {
+        global.gc();
+    }
+    // Vyčisti prázdne sockety
+    for (let id in sockets) {
+        if (!sockets[id] || !sockets[id].connected) {
+            delete sockets[id];
+        }
+    }
+}, 30000);
+
+// Don't touch, IP configurations.
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host;
+var serverport = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || config.port;
+http.listen(serverport, ipaddress, () => console.log('[DEBUG] Listening on ' + ipaddress + ':' + serverport));

@@ -815,3 +815,150 @@ button:focus {
     from { transform: translateY(50px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
+
+/* Round Timer Styles */
+#roundTimer {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    padding: 10px 20px;
+    color: white;
+    font-family: sans-serif;
+    font-weight: bold;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+#roundTimer .round-status {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+
+#roundTimer .time-display {
+    font-size: 24px;
+}
+
+#roundTimer.waiting {
+    background: rgba(255, 193, 7, 0.9);
+    color: #000;
+}
+
+#roundTimer.active {
+    background: rgba(76, 175, 80, 0.9);
+}
+
+#roundTimer.warning {
+    background: rgba(244, 67, 54, 0.9);
+    animation: pulse 0.5s infinite;
+}
+
+#roundTimer.break {
+    background: rgba(96, 125, 139, 0.9);
+}
+
+@keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Practice mode timer */
+#roundTimer.practice {
+    background: rgba(33, 150, 243, 0.9);
+    color: white;
+}
+
+/* Countdown timer */
+#roundTimer.countdown {
+    background: rgba(255, 152, 0, 0.9);
+    color: white;
+    animation: pulse 0.5s infinite;
+}
+
+/* Break with winner display */
+#roundTimer.break {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    min-width: 300px;
+}
+
+/* Big countdown overlay */
+#bigCountdown {
+    animation: countdownPulse 1s ease-out;
+}
+
+@keyframes countdownPulse {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.2); }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* Winner announcement */
+#winnerAnnouncement {
+    animation: slideDown 0.5s ease-out;
+}
+
+@keyframes slideDown {
+    from { transform: translateX(-50%) translateY(-100px); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* Social Media Buttons */
+#socialButtons {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.social-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.twitter-btn {
+    background: linear-gradient(135deg, #1DA1F2 0%, #1a8cd8 100%);
+    box-shadow: 0 2px 4px rgba(29, 161, 242, 0.3);
+}
+
+.twitter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(29, 161, 242, 0.4);
+}
+
+.pump-btn {
+    background: linear-gradient(135deg, #ff4458 0%, #e63946 100%);
+    box-shadow: 0 2px 4px rgba(255, 68, 88, 0.3);
+}
+
+.pump-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 68, 88, 0.4);
+}
+
+.telegram-btn {
+    background: linear-gradient(135deg, #0088cc 0%, #0077b5 100%);
+    box-shadow: 0 2px 4px rgba(0, 136, 204, 0.3);
+}
+
+.telegram-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 136, 204, 0.4);
+}
