@@ -1,3 +1,10 @@
+#!/bin/bash
+
+echo "🔧 Fixing menu hiding and forcing name input..."
+
+# 1. FIX APP.JS - Menu must hide properly and force name input
+echo "📝 Fixing app.js..."
+cat > src/client/js/app.js << 'EOF'
 var io = require('socket.io-client');
 var render = require('./render');
 var ChatClient = require('./chat-client');
@@ -17,6 +24,16 @@ if (/Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent)) {
     global.mobile = true;
 }
 
+// Generate random guest name if needed
+function generateGuestName() {
+    const adjectives = ['Swift', 'Mighty', 'Silent', 'Golden', 'Silver', 'Brave', 'Quick', 'Smart', 'Cool', 'Epic'];
+    const nouns = ['Player', 'Hunter', 'Warrior', 'Champion', 'Master', 'Legend', 'Hero', 'Star', 'Wolf', 'Eagle'];
+    const random1 = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const random2 = nouns[Math.floor(Math.random() * nouns.length)];
+    const randomNum = Math.floor(Math.random() * 999);
+    return random1 + random2 + randomNum;
+}
+
 function startGame(type) {
     global.playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0, 44);
     global.playerType = type;
@@ -24,7 +41,7 @@ function startGame(type) {
     global.screen.width = window.innerWidth;
     global.screen.height = window.innerHeight;
 
-    // FORCE HIDE MENU
+    // FORCE HIDE MENU - Use both display and visibility
     document.getElementById('startMenuWrapper').style.display = 'none';
     document.getElementById('startMenuWrapper').style.visibility = 'hidden';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
@@ -42,7 +59,9 @@ function startGame(type) {
     global.socket = socket;
 }
 
+// Validate name/SOL address
 function validNick() {
+    // Must have at least 1 character
     return playerNameInput.value.trim().length > 0;
 }
 
@@ -52,8 +71,8 @@ window.onload = function () {
         btnS = document.getElementById('spectateButton'),
         nickErrorText = document.querySelector('#startMenu .input-error');
 
-    // DO NOT SET ANY DEFAULT VALUE - LEAVE EMPTY TO SHOW PLACEHOLDER
-    // playerNameInput.value = "";  // NO DEFAULT NAME!
+    // Generate random name on page load
+    playerNameInput.value = generateGuestName();
 
     btnS.onclick = function () {
         startGame('spectator');
@@ -154,16 +173,20 @@ function handleDisconnect() {
     }
 }
 
+// socket stuff.
 function setupSocket(socket) {
+    // Handle ping.
     socket.on('pongcheck', function () {
         var latency = Date.now() - global.startPingTime;
         debug('Latency: ' + latency + 'ms');
         window.chat.addSystemLine('Ping: ' + latency + 'ms');
     });
 
+    // Handle error.
     socket.on('connect_error', handleDisconnect);
     socket.on('disconnect', handleDisconnect);
 
+    // Handle connection.
     socket.on('welcome', function (playerSettings, gameSizes) {
         player = playerSettings;
         player.name = global.playerName;
@@ -223,10 +246,12 @@ function setupSocket(socket) {
         window.chat.addSystemLine(data);
     });
 
+    // Chat.
     socket.on('serverSendPlayerChat', function (data) {
         window.chat.addChatLine(data.sender, data.message, false);
     });
 
+    // Handle movement.
     socket.on('serverTellPlayerMove', function (playerData, userData, foodsList, massList, virusList) {
         if (global.playerType == 'player') {
             player.x = playerData.x;
@@ -241,6 +266,7 @@ function setupSocket(socket) {
         fireFood = massList;
     });
 
+    // Death.
     socket.on('RIP', function () {
         global.gameStart = false;
         render.drawErrorMessage('You died!', graph, global.screen);
@@ -267,6 +293,8 @@ function setupSocket(socket) {
         socket.close();
     });
 }
+
+const isUnnamedCell = (name) => !name || name.length < 1;
 
 const getPosition = (entity, player, screen) => {
     return {
@@ -313,6 +341,7 @@ function gameLoop() {
             let position = getPosition(virus, player, global.screen);
             render.drawVirus(position, virus, graph);
         });
+
 
         let borders = {
             left: global.screen.width / 2 - player.x,
@@ -364,3 +393,243 @@ function resize() {
 
     socket.emit('windowResized', { screenWidth: global.screen.width, screenHeight: global.screen.height });
 }
+EOF
+
+# 2. UPDATE HTML - Change placeholder and error message
+echo "📝 Updating HTML..."
+cat > src/client/index.html << 'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Meta Properties -->
+    <meta charset="UTF-8">
+    <title>PlayAgario.fun - SOL Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/main.css" />
+    <!-- Audio -->
+    <audio id="split_cell" src="audio/split.mp3"></audio>
+    <audio id="spawn_cell" src="audio/spawn.mp3"></audio>
+</head>
+<body>
+    <div id="gameAreaWrapper">
+        <div id="status">
+            <span class="title">🏆 Leaderboard</span>
+        </div>
+        <div class="chatbox" id="chatbox">
+            <ul id="chatList" class="chat-list"></ul>
+            <input id="chatInput" type="text" class="chat-input" placeholder="Type your message..." maxlength="35" />
+        </div>
+        <div id="mobile">
+           <button id="split" class="split" style="font-size: 24px;">⚡</button>
+           <button id="feed" class="feed" style="font-size: 24px;">🎯</button>
+        </div>
+        <canvas tabindex="1" id="cvs"></canvas>
+    </div>
+    <div id="startMenuWrapper">
+        <div id="startMenu">
+            <p>💎 PlayAgario.fun</p>
+            <input type="text" tabindex="0" autofocus placeholder="Enter your name or SOL address" id="playerNameInput" maxlength="44" />
+            <b class="input-error">You must enter a name!</b>
+            <br />
+            <button id="startButton">PLAY GAME</button>
+            <button id="spectateButton">SPECTATE</button>
+            <button id="settingsButton">SETTINGS</button>
+            <br />
+            <div id="settings">
+                <h3>⚙️ Game Settings</h3>
+                <ul>
+                    <label><input id="visBord" type="checkbox"> Show border</label>
+                    <label><input id="showMass" type="checkbox"> Show mass</label>
+                    <label><input id="continuity" type="checkbox"> Continue moving off-screen</label>
+                    <label><input id="roundFood" type="checkbox" checked> Rounded food</label>
+                    <label><input id="darkMode" type="checkbox"> Dark mode</label>
+                </ul>
+            </div>
+            <div id="instructions">
+                <h3>📖 How to Play</h3>
+                <ul>
+                    <li>Enter your name or Solana wallet address</li>
+                    <li>Move your mouse to control your cell</li>
+                    <li>Eat food and smaller players to grow</li>
+                    <li>Press SPACE to split, W to eject mass</li>
+                    <li>Avoid larger players and viruses</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- JS -->
+    <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+EOF
+
+# 3. UPDATE SERVER VALIDATION TO ACCEPT ANY NAME
+echo "📝 Updating server validation..."
+cat > src/server/lib/util.js << 'EOF'
+/* jslint node: true */
+
+'use strict';
+
+const cfg = require('../../../config');
+
+exports.validNick = function (nickname) {
+    // Accept any non-empty name
+    return nickname && nickname.trim().length > 0;
+};
+
+// determine mass from radius of circle
+exports.massToRadius = function (mass) {
+    return 4 + Math.sqrt(mass) * 6;
+};
+
+// overwrite Math.log function
+exports.mathLog = (function () {
+    var log = Math.log;
+    return function (n, base) {
+        return log(n) / (base ? log(base) : 1);
+    };
+})();
+
+// get the Euclidean distance between the edges of two shapes
+exports.getDistance = function (p1, p2) {
+    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)) - p1.radius - p2.radius;
+};
+
+exports.randomInRange = function (from, to) {
+    return Math.floor(Math.random() * (to - from)) + from;
+};
+
+// generate a random position within the field of play
+exports.randomPosition = function (radius) {
+    return {
+        x: exports.randomInRange(radius, cfg.gameWidth - radius),
+        y: exports.randomInRange(radius, cfg.gameHeight - radius)
+    };
+};
+
+exports.uniformPosition = function (points, radius) {
+    var bestCandidate, maxDistance = 0;
+    var numberOfCandidates = 10;
+
+    if (points.length === 0) {
+        return exports.randomPosition(radius);
+    }
+
+    // Generate the candidates
+    for (var ci = 0; ci < numberOfCandidates; ci++) {
+        var minDistance = Infinity;
+        var candidate = exports.randomPosition(radius);
+        candidate.radius = radius;
+
+        for (var pi = 0; pi < points.length; pi++) {
+            var distance = exports.getDistance(candidate, points[pi]);
+            if (distance < minDistance) {
+                minDistance = distance;
+            }
+        }
+
+        if (minDistance > maxDistance) {
+            bestCandidate = candidate;
+            maxDistance = minDistance;
+        } else {
+            return exports.randomPosition(radius);
+        }
+    }
+
+    return bestCandidate;
+};
+
+exports.findIndex = function (arr, id) {
+    var len = arr.length;
+
+    while (len--) {
+        if (arr[len].id === id) {
+            return len;
+        }
+    }
+
+    return -1;
+};
+
+exports.randomColor = function () {
+    var color = '#' + ('00000' + (Math.random() * (1 << 24) | 0).toString(16)).slice(-6);
+    var c = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+    var r = (parseInt(c[1], 16) - 32) > 0 ? (parseInt(c[1], 16) - 32) : 0;
+    var g = (parseInt(c[2], 16) - 32) > 0 ? (parseInt(c[2], 16) - 32) : 0;
+    var b = (parseInt(c[3], 16) - 32) > 0 ? (parseInt(c[3], 16) - 32) : 0;
+
+    return {
+        fill: color,
+        border: '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+    };
+};
+
+exports.removeNulls = function (inputArray) {
+    let result = [];
+    for (let element of inputArray) {
+        if (element != null) {
+            result.push(element);
+        }
+    }
+
+    return result;
+}
+
+exports.removeIndexes = function (inputArray, indexes) {
+    let nullified = inputArray;
+    for (let index of indexes) {
+        nullified[index] = null;
+    }
+
+    return exports.removeNulls(nullified);
+}
+
+exports.testRectangleRectangle =
+    function (centerXA, centerYA, widthA, heightA, centerXB, centerYB, widthB, heightB) {
+        return centerXA + widthA > centerXB - widthB
+            && centerXA - widthA < centerXB + widthB
+            && centerYA + heightA > centerYB - heightB
+            && centerYA - heightA < centerYB + heightB;
+    }
+
+exports.testSquareRectangle =
+    function (centerXA, centerYA, edgeLengthA, centerXB, centerYB, widthB, heightB) {
+        return exports.testRectangleRectangle(
+            centerXA, centerYA, edgeLengthA, edgeLengthA,
+            centerXB, centerYB, widthB, heightB);
+    }
+
+exports.getIndexes = (array, predicate) => {
+    return array.reduce((acc, value, index) => {
+        if (predicate(value)) {
+            acc.push(index)
+        }
+        return acc;
+    }, []);
+}
+EOF
+
+# 4. BUILD AND RESTART
+echo "🔨 Rebuilding project..."
+npm run build
+
+echo "🔄 Restarting server..."
+pm2 restart all
+
+echo "✅ All fixes applied!"
+echo ""
+echo "🎉 Fixed:"
+echo "  ✅ Menu now completely disappears (display:none + visibility:hidden)"
+echo "  ✅ Players MUST enter a name (no more 'unnamed cell')"
+echo "  ✅ Auto-generates random name on page load (e.g., SwiftPlayer123)"
+echo "  ✅ Accepts ANY name, not just SOL addresses"
+echo "  ✅ SOL addresses still display shortened (GmXv...7kPa)"
+echo ""
+echo "🎮 Now players can:"
+echo "  • Use any name they want"
+echo "  • Use SOL addresses (displayed short)"
+echo "  • Get a random name by default"
+echo ""
+echo "🌐 Server running at playagario.fun:3000"

@@ -1,3 +1,10 @@
+#!/bin/bash
+
+echo "🎮 Applying ALL fixes for playagario.fun..."
+
+# 1. Fix the app.js with random names and menu fix
+echo "📝 Fixing app.js for menu and random names..."
+cat > src/client/js/app.js << 'EOF'
 var io = require('socket.io-client');
 var render = require('./render');
 var ChatClient = require('./chat-client');
@@ -17,16 +24,37 @@ if (/Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent)) {
     global.mobile = true;
 }
 
-function startGame(type) {
-    global.playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0, 44);
-    global.playerType = type;
+// Generate random guest name
+function generateGuestName() {
+    const adjectives = ['Swift', 'Mighty', 'Silent', 'Golden', 'Silver', 'Brave', 'Quick', 'Smart', 'Cool', 'Epic'];
+    const nouns = ['Player', 'Hunter', 'Warrior', 'Champion', 'Master', 'Legend', 'Hero', 'Star', 'Wolf', 'Eagle'];
+    const random1 = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const random2 = nouns[Math.floor(Math.random() * nouns.length)];
+    const randomNum = Math.floor(Math.random() * 999);
+    return random1 + random2 + randomNum;
+}
 
+function startGame(type) {
+    // If no input, generate random name
+    if (playerNameInput.value.length === 0) {
+        global.playerName = generateGuestName();
+    } else {
+        global.playerName = playerNameInput.value.substring(0, 44);
+    }
+    
+    global.playerType = type;
     global.screen.width = window.innerWidth;
     global.screen.height = window.innerHeight;
 
-    // FORCE HIDE MENU
-    document.getElementById('startMenuWrapper').style.display = 'none';
-    document.getElementById('startMenuWrapper').style.visibility = 'hidden';
+    // CRITICAL FIX: Properly hide the menu
+    var menuWrapper = document.getElementById('startMenuWrapper');
+    menuWrapper.style.maxHeight = '0px';
+    menuWrapper.style.overflow = 'hidden';
+    menuWrapper.style.opacity = '0';
+    setTimeout(function() {
+        menuWrapper.style.display = 'none';
+    }, 500);
+    
     document.getElementById('gameAreaWrapper').style.opacity = 1;
     
     if (!socket) {
@@ -42,25 +70,24 @@ function startGame(type) {
     global.socket = socket;
 }
 
-function validNick() {
-    return playerNameInput.value.trim().length > 0;
+// Check for valid SOL address
+function validSOLAddress() {
+    if (playerNameInput.value.length === 0) return true; // Empty is valid
+    var solRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    return solRegex.test(playerNameInput.value);
 }
 
 window.onload = function () {
-
     var btn = document.getElementById('startButton'),
         btnS = document.getElementById('spectateButton'),
         nickErrorText = document.querySelector('#startMenu .input-error');
-
-    // DO NOT SET ANY DEFAULT VALUE - LEAVE EMPTY TO SHOW PLACEHOLDER
-    // playerNameInput.value = "";  // NO DEFAULT NAME!
 
     btnS.onclick = function () {
         startGame('spectator');
     };
 
     btn.onclick = function () {
-        if (validNick()) {
+        if (validSOLAddress()) {
             nickErrorText.style.opacity = 0;
             startGame('player');
         } else {
@@ -81,9 +108,8 @@ window.onload = function () {
 
     playerNameInput.addEventListener('keypress', function (e) {
         var key = e.which || e.keyCode;
-
         if (key === global.KEY_ENTER) {
-            if (validNick()) {
+            if (validSOLAddress()) {
                 nickErrorText.style.opacity = 0;
                 startGame('player');
             } else {
@@ -149,7 +175,7 @@ $("#split").click(function () {
 
 function handleDisconnect() {
     socket.close();
-    if (!global.kicked) { 
+    if (!global.kicked) {
         render.drawErrorMessage('Disconnected!', graph, global.screen);
     }
 }
@@ -186,34 +212,29 @@ function setupSocket(socket) {
     });
 
     socket.on('playerDied', (data) => {
-        const player = data.playerEatenName || 'A player';
+        const player = formatSOLAddress(data.playerEatenName);
         window.chat.addSystemLine('{GAME} - <b>' + (player) + '</b> was eaten');
     });
 
     socket.on('playerDisconnect', (data) => {
-        window.chat.addSystemLine('{GAME} - <b>' + (data.name || 'A player') + '</b> disconnected.');
+        window.chat.addSystemLine('{GAME} - <b>' + formatSOLAddress(data.name) + '</b> disconnected.');
     });
 
     socket.on('playerJoin', (data) => {
-        window.chat.addSystemLine('{GAME} - <b>' + (data.name || 'A player') + '</b> joined.');
+        window.chat.addSystemLine('{GAME} - <b>' + formatSOLAddress(data.name) + '</b> joined.');
     });
 
     socket.on('leaderboard', (data) => {
         leaderboard = data.leaderboard;
-        var status = '<span class="title">Leaderboard</span>';
+        var status = '<span class="title">🏆 Leaderboard</span>';
         for (var i = 0; i < leaderboard.length; i++) {
             status += '<br />';
-            var name = leaderboard[i].name;
-            
-            // Format SOL address if it looks like one
-            if (name && name.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(name)) {
-                name = name.substring(0, 4) + '...' + name.substring(name.length - 4);
-            }
+            var displayName = formatSOLAddress(leaderboard[i].name);
             
             if (leaderboard[i].id == player.id) {
-                status += '<span class="me">' + (i + 1) + '. ' + name + "</span>";
+                status += '<span class="me">' + (i + 1) + '. ' + displayName + "</span>";
             } else {
-                status += (i + 1) + '. ' + name;
+                status += (i + 1) + '. ' + displayName;
             }
         }
         document.getElementById('status').innerHTML = status;
@@ -246,8 +267,13 @@ function setupSocket(socket) {
         render.drawErrorMessage('You died!', graph, global.screen);
         window.setTimeout(() => {
             document.getElementById('gameAreaWrapper').style.opacity = 0;
-            document.getElementById('startMenuWrapper').style.display = 'block';
-            document.getElementById('startMenuWrapper').style.visibility = 'visible';
+            var menuWrapper = document.getElementById('startMenuWrapper');
+            menuWrapper.style.display = 'block';
+            setTimeout(function() {
+                menuWrapper.style.opacity = '1';
+                menuWrapper.style.maxHeight = '1000px';
+                menuWrapper.style.overflow = 'visible';
+            }, 10);
             if (global.animLoopHandle) {
                 window.cancelAnimationFrame(global.animLoopHandle);
                 global.animLoopHandle = undefined;
@@ -267,6 +293,20 @@ function setupSocket(socket) {
         socket.close();
     });
 }
+
+const formatSOLAddress = (address) => {
+    if (!address || address.length === 0) return "Guest";
+    
+    // Check if it's a SOL address format
+    if (address.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address)) {
+        return address.substring(0, 4) + '...' + address.substring(address.length - 4);
+    }
+    
+    // For guest names, show as is (they're already short)
+    return address;
+}
+
+const isUnnamedCell = (name) => name.length < 1;
 
 const getPosition = (entity, player, screen) => {
     return {
@@ -345,7 +385,7 @@ function gameLoop() {
         });
         render.drawCells(cellsToDraw, playerConfig, global.toggleMassState, borders, graph);
 
-        socket.emit('0', window.canvas.target); 
+        socket.emit('0', window.canvas.target);
     }
 }
 
@@ -364,3 +404,15 @@ function resize() {
 
     socket.emit('windowResized', { screenWidth: global.screen.width, screenHeight: global.screen.height });
 }
+EOF
+
+echo "🔨 Rebuilding..."
+npm run build
+
+echo "🔄 Restarting server..."
+pm2 restart all
+
+echo "✅ Complete fix applied!"
+echo "  • Menu now disappears properly"
+echo "  • Random guest names work"
+echo "  • Title shows PlayAgario.fun"

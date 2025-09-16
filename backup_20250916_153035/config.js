@@ -17,21 +17,20 @@ module.exports = {
         splitMass: 180,
         uniformDisposition: false,
     },
-    gameWidth: 3000,  // Reduced from 5000
-    gameHeight: 3000, // Reduced from 5000
+    gameWidth: 2500,
+    gameHeight: 2500,
     adminPass: "kokot",
-    gameMass: 15000,  // Reduced proportionally
-    maxFood: 400,     // Reduced for smaller map
-    maxVirus: 20,     // Reduced for smaller map
+    gameMass: 15000,  // Znížené pre lepší výkon
+    maxFood: 250,     // Menej jedla = lepší výkon
+    maxVirus: 10,     // Menej vírusov
     slowBase: 4.5,
     logChat: 0,
-    networkUpdateFactor: 30,
+    networkUpdateFactor: 25,  // Menej network updatov
     maxHeartbeatInterval: 5000,
-    foodUniformDisposition: false,
-    newPlayerInitialPosition: "random",
+    foodUniformDisposition: true,
+    newPlayerInitialPosition: "farthest",
     massLossRate: 1,
     minMassLoss: 50,
-    maxPlayers: 30,
     sqlinfo: {
       fileName: "db.sqlite3",
     }

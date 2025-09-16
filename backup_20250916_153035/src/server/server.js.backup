@@ -23,31 +23,16 @@ const INIT_MASS_LOG = util.mathLog(config.defaultPlayerMass, config.slowBase);
 
 let leaderboard = [];
 let leaderboardChanged = false;
-let playerCount = 0;
-
-// Food spawning optimization
-let foodSpawnQueue = [];
-let lastFoodSpawn = Date.now();
-const FOOD_SPAWN_BATCH_SIZE = 10;
-const FOOD_SPAWN_INTERVAL = 100; // Spawn food in batches every 100ms
 
 const Vector = SAT.Vector;
 
-app.use(express.static(__dirname + '/../client'));
+app.use(express.static(__dirname + '/../../bin/client'));
 
 io.on('connection', function (socket) {
-    // Check player limit
-    if (playerCount >= config.maxPlayers) {
-        socket.emit('kick', 'Server is full (max ' + config.maxPlayers + ' players)');
-        socket.disconnect();
-        return;
-    }
-    
     let type = socket.handshake.query.type;
     console.log('User has connected: ', type);
     switch (type) {
         case 'player':
-            playerCount++;
             addPlayer(socket);
             break;
         case 'spectator':
@@ -60,9 +45,9 @@ io.on('connection', function (socket) {
 
 function generateSpawnpoint() {
     let radius = util.massToRadius(config.defaultPlayerMass);
-    // Use random position for performance
-    return util.randomPosition(radius);
+    return getPosition(config.newPlayerInitialPosition === 'farthest', radius, map.players.data)
 }
+
 
 const addPlayer = (socket) => {
     var currentPlayer = new mapUtils.playerUtils.Player(socket.id);
@@ -86,13 +71,10 @@ const addPlayer = (socket) => {
 
             currentPlayer.clientProvidedData(clientPlayerData);
             map.players.pushNew(currentPlayer);
-            
-            // Queue food spawn instead of immediate
-            foodSpawnQueue.push(3);
-            
             io.emit('playerJoin', { name: currentPlayer.name });
             console.log('Total players: ' + map.players.data.length);
         }
+
     });
 
     socket.on('pingcheck', () => {
@@ -114,7 +96,6 @@ const addPlayer = (socket) => {
     });
 
     socket.on('disconnect', () => {
-        playerCount--;
         map.players.removePlayerByID(currentPlayer.id);
         console.log('[INFO] User ' + currentPlayer.name + ' has disconnected');
         socket.broadcast.emit('playerDisconnect', { name: currentPlayer.name });
@@ -133,11 +114,8 @@ const addPlayer = (socket) => {
             message: _message.substring(0, 35)
         });
 
-        // Remove async chat logging for performance
-        if (config.logChat === 1) {
-            chatRepository.logChatMessage(_sender, _message, currentPlayer.ipAddress)
-                .catch((err) => console.error("Error when attempting to log chat message", err));
-        }
+        chatRepository.logChatMessage(_sender, _message, currentPlayer.ipAddress)
+            .catch((err) => console.error("Error when attempting to log chat message", err));
     });
 
     socket.on('pass', async (data) => {
@@ -149,8 +127,9 @@ const addPlayer = (socket) => {
             currentPlayer.admin = true;
         } else {
             console.log('[ADMIN] ' + currentPlayer.name + ' attempted to log in with the incorrect password: ' + password);
+
             socket.emit('serverMSG', 'Password incorrect, attempt logged.');
-            
+
             loggingRepositry.logFailedLoginAttempt(currentPlayer.name, currentPlayer.ipAddress)
                 .catch((err) => console.error("Error when attempting to log failed login attempt", err));
         }
@@ -195,6 +174,7 @@ const addPlayer = (socket) => {
         }
     });
 
+    // Heartbeat function, update everytime.
     socket.on('0', (target) => {
         currentPlayer.lastHeartbeat = new Date().getTime();
         if (target.x !== currentPlayer.x || target.y !== currentPlayer.y) {
@@ -203,6 +183,7 @@ const addPlayer = (socket) => {
     });
 
     socket.on('1', function () {
+        // Fire food.
         const minCellMass = config.defaultPlayerMass + config.fireFood;
         for (let i = 0; i < currentPlayer.cells.length; i++) {
             if (currentPlayer.cells[i].mass >= minCellMass) {
@@ -234,7 +215,6 @@ const tickPlayer = (currentPlayer) => {
     if (currentPlayer.lastHeartbeat < new Date().getTime() - config.maxHeartbeatInterval) {
         sockets[currentPlayer.id].emit('kick', 'Last heartbeat received over ' + config.maxHeartbeatInterval + ' ago.');
         sockets[currentPlayer.id].disconnect();
-        return;
     }
 
     currentPlayer.move(config.slowBase, config.gameWidth, config.gameHeight, INIT_MASS_LOG);
@@ -250,6 +230,7 @@ const tickPlayer = (currentPlayer) => {
             if (cell.mass > mass.mass * 1.1)
                 return true;
         }
+
         return false;
     };
 
@@ -260,6 +241,7 @@ const tickPlayer = (currentPlayer) => {
     const cellsToSplit = [];
     for (let cellIndex = 0; cellIndex < currentPlayer.cells.length; cellIndex++) {
         const currentCell = currentPlayer.cells[cellIndex];
+
         const cellCircle = currentCell.toCircle();
 
         const eatenFoodIndexes = util.getIndexes(map.food.data, food => isEntityInsideCircle(food, cellCircle));
@@ -273,11 +255,6 @@ const tickPlayer = (currentPlayer) => {
 
         let massGained = eatenMassIndexes.reduce((acc, index) => acc + map.massFood.data[index].mass, 0);
 
-        // Queue food respawn instead of immediate
-        if (eatenFoodIndexes.length > 0) {
-            foodSpawnQueue.push(eatenFoodIndexes.length);
-        }
-        
         map.food.delete(eatenFoodIndexes);
         map.massFood.remove(eatenMassIndexes);
         massGained += (eatenFoodIndexes.length * config.foodMass);
@@ -286,42 +263,8 @@ const tickPlayer = (currentPlayer) => {
     currentPlayer.virusSplit(cellsToSplit, config.limitSplit, config.defaultPlayerMass);
 };
 
-// Optimized batch food spawning
-const processFoodSpawnQueue = () => {
-    if (foodSpawnQueue.length === 0) return;
-    
-    let totalToSpawn = 0;
-    let batchSize = Math.min(foodSpawnQueue.length, FOOD_SPAWN_BATCH_SIZE);
-    
-    for (let i = 0; i < batchSize; i++) {
-        totalToSpawn += foodSpawnQueue.shift();
-    }
-    
-    if (totalToSpawn > 0 && map.food.data.length < config.maxFood) {
-        let toAdd = Math.min(totalToSpawn, config.maxFood - map.food.data.length);
-        map.food.addNew(toAdd);
-    }
-};
-
 const tickGame = () => {
-    // Process players in chunks to avoid blocking
-    const CHUNK_SIZE = 10;
-    let processed = 0;
-    
-    const processChunk = () => {
-        const chunk = map.players.data.slice(processed, processed + CHUNK_SIZE);
-        chunk.forEach(tickPlayer);
-        processed += CHUNK_SIZE;
-        
-        if (processed < map.players.data.length) {
-            setImmediate(processChunk);
-        }
-    };
-    
-    if (map.players.data.length > 0) {
-        processChunk();
-    }
-    
+    map.players.data.forEach(tickPlayer);
     map.massFood.move(config.gameWidth, config.gameHeight);
 
     map.players.handleCollisions(function (gotEaten, eater) {
@@ -332,18 +275,12 @@ const tickGame = () => {
         const playerDied = map.players.removeCell(gotEaten.playerIndex, gotEaten.cellIndex);
         if (playerDied) {
             let playerGotEaten = map.players.data[gotEaten.playerIndex];
-            io.emit('playerDied', { name: playerGotEaten.name });
+            io.emit('playerDied', { name: playerGotEaten.name }); //TODO: on client it is `playerEatenName` instead of `name`
             sockets[playerGotEaten.id].emit('RIP');
             map.players.removePlayerByIndex(gotEaten.playerIndex);
         }
     });
 
-    // Process food spawn queue
-    const now = Date.now();
-    if (now - lastFoodSpawn >= FOOD_SPAWN_INTERVAL) {
-        processFoodSpawnQueue();
-        lastFoodSpawn = now;
-    }
 };
 
 const calculateLeaderboard = () => {
@@ -368,82 +305,20 @@ const gameloop = () => {
         calculateLeaderboard();
         map.players.shrinkCells(config.massLossRate, config.defaultPlayerMass, config.minMassLoss);
     }
-    
-    // Only balance mass every 5 seconds
-    if (Date.now() % 5000 < 1000) {
-        map.balanceMass(config.foodMass, config.gameMass, config.maxFood, config.maxVirus);
-    }
+
+    map.balanceMass(config.foodMass, config.gameMass, config.maxFood, config.maxVirus);
 };
 
 const sendUpdates = () => {
     spectators.forEach(updateSpectator);
-    
-    // Send updates in chunks
-    const CHUNK_SIZE = 10;
-    let processed = 0;
-    
-    const sendChunk = () => {
-        const endIndex = Math.min(processed + CHUNK_SIZE, map.players.data.length);
-        
-        for (let i = processed; i < endIndex; i++) {
-            const currentPlayer = map.players.data[i];
-            const socket = sockets[currentPlayer.id];
-            
-            if (!socket) continue;
-            
-            // Only send visible entities
-            var visibleFood = map.food.data.filter(entity => 
-                Math.abs(entity.x - currentPlayer.x) < currentPlayer.screenWidth &&
-                Math.abs(entity.y - currentPlayer.y) < currentPlayer.screenHeight
-            );
-            var visibleViruses = map.viruses.data.filter(entity => 
-                Math.abs(entity.x - currentPlayer.x) < currentPlayer.screenWidth &&
-                Math.abs(entity.y - currentPlayer.y) < currentPlayer.screenHeight
-            );
-            var visibleMass = map.massFood.data.filter(entity => 
-                Math.abs(entity.x - currentPlayer.x) < currentPlayer.screenWidth &&
-                Math.abs(entity.y - currentPlayer.y) < currentPlayer.screenHeight
-            );
-            
-            const extractData = (player) => {
-                return {
-                    x: player.x,
-                    y: player.y,
-                    cells: player.cells,
-                    massTotal: Math.round(player.massTotal),
-                    hue: player.hue,
-                    id: player.id,
-                    name: player.name
-                };
-            }
-            
-            var visiblePlayers = [];
-            for (let player of map.players.data) {
-                if (Math.abs(player.x - currentPlayer.x) < currentPlayer.screenWidth &&
-                    Math.abs(player.y - currentPlayer.y) < currentPlayer.screenHeight) {
-                    visiblePlayers.push(extractData(player));
-                }
-            }
-            
-            socket.emit('serverTellPlayerMove', extractData(currentPlayer), visiblePlayers, visibleFood, visibleMass, visibleViruses);
-            
-            if (leaderboardChanged) {
-                sendLeaderboard(socket);
-            }
+    map.enumerateWhatPlayersSee(function (playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses) {
+        sockets[playerData.id].emit('serverTellPlayerMove', playerData, visiblePlayers, visibleFood, visibleMass, visibleViruses);
+        if (leaderboardChanged) {
+            sendLeaderboard(sockets[playerData.id]);
         }
-        
-        processed = endIndex;
-        
-        if (processed < map.players.data.length) {
-            setImmediate(sendChunk);
-        } else {
-            leaderboardChanged = false;
-        }
-    };
-    
-    if (map.players.data.length > 0) {
-        sendChunk();
-    }
+    });
+
+    leaderboardChanged = false;
 };
 
 const sendLeaderboard = (socket) => {
@@ -452,7 +327,6 @@ const sendLeaderboard = (socket) => {
         leaderboard
     });
 }
-
 const updateSpectator = (socketID) => {
     let playerData = {
         x: config.gameWidth / 2,
@@ -469,10 +343,9 @@ const updateSpectator = (socketID) => {
     }
 }
 
-// Optimized intervals
-setInterval(tickGame, 1000 / 60); // 60 FPS game logic
-setInterval(gameloop, 1000); // 1 second game loop
-setInterval(sendUpdates, 1000 / config.networkUpdateFactor); // Network updates
+setInterval(tickGame, 1000 / 60);
+setInterval(gameloop, 1000);
+setInterval(sendUpdates, 1000 / config.networkUpdateFactor);
 
 // Don't touch, IP configurations.
 var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host;

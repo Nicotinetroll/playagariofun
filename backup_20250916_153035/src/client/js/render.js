@@ -74,23 +74,6 @@ const drawCellWithLines = (cell, borders, graph) => {
     graph.stroke();
 }
 
-// Format name for display
-const formatNameForDisplay = (name) => {
-    if (!name || name.length === 0) return "Guest";
-    
-    // Check if it's a SOL address (32-44 chars, base58)
-    if (name.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(name)) {
-        return name.substring(0, 4) + '...' + name.substring(name.length - 4);
-    }
-    
-    // For guest names or other formats, show up to 15 chars
-    if (name.length > 15) {
-        return name.substring(0, 12) + '...';
-    }
-    
-    return name;
-}
-
 const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
     for (let cell of cells) {
         // Draw the cell itself
@@ -105,9 +88,6 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
             drawRoundObject(cell, cell.radius, graph);
         }
 
-        // Format name for display
-        let displayName = formatNameForDisplay(cell.name);
-
         // Draw the name of the player
         let fontSize = Math.max(cell.radius / 3, 12);
         graph.lineWidth = playerConfig.textBorderSize;
@@ -118,13 +98,13 @@ const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
         graph.textAlign = 'center';
         graph.textBaseline = 'middle';
         graph.font = 'bold ' + fontSize + 'px sans-serif';
-        graph.strokeText(displayName, cell.x, cell.y);
-        graph.fillText(displayName, cell.x, cell.y);
+        graph.strokeText(cell.name, cell.x, cell.y);
+        graph.fillText(cell.name, cell.x, cell.y);
 
         // Draw the mass (if enabled)
         if (toggleMassState === 1) {
             graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
-            if (displayName.length === 0) fontSize = 0;
+            if (cell.name.length === 0) fontSize = 0;
             graph.strokeText(Math.round(cell.mass), cell.x, cell.y + fontSize);
             graph.fillText(Math.round(cell.mass), cell.x, cell.y + fontSize);
         }

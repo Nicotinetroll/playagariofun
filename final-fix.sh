@@ -1,10 +1,20 @@
+#!/bin/bash
+
+echo "🎮 Final fixes for playagario.fun..."
+
+# 1. UPDATE HTML TITLE AND FIX RANDOM NAMES
+echo "📝 Updating HTML title and fixing random names..."
+cat > src/client/index.html << 'EOF'
 <!doctype html>
 <html lang="en">
 <head>
+    <!-- Meta Properties -->
     <meta charset="UTF-8">
     <title>PlayAgario.fun - SOL Edition</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <!-- CSS -->
     <link rel="stylesheet" href="css/main.css" />
+    <!-- Audio -->
     <audio id="split_cell" src="audio/split.mp3"></audio>
     <audio id="spawn_cell" src="audio/spawn.mp3"></audio>
 </head>
@@ -26,8 +36,8 @@
     <div id="startMenuWrapper">
         <div id="startMenu">
             <p>💎 PlayAgario.fun</p>
-            <input type="text" tabindex="0" autofocus placeholder="Enter your name or SOL address" id="playerNameInput" maxlength="44" />
-            <b class="input-error">You must enter a name!</b>
+            <input type="text" tabindex="0" autofocus placeholder="Enter your SOL address (or leave empty)" id="playerNameInput" maxlength="44" />
+            <b class="input-error">Please enter a valid SOL address or leave empty!</b>
             <br />
             <button id="startButton">PLAY GAME</button>
             <button id="spectateButton">SPECTATE</button>
@@ -46,7 +56,7 @@
             <div id="instructions">
                 <h3>📖 How to Play</h3>
                 <ul>
-                    <li>Enter your name or Solana wallet address</li>
+                    <li>Enter your Solana wallet address or play anonymously</li>
                     <li>Move your mouse to control your cell</li>
                     <li>Eat food and smaller players to grow</li>
                     <li>Press SPACE to split, W to eject mass</li>
@@ -55,7 +65,18 @@
             </div>
         </div>
     </div>
+    <!-- JS -->
     <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
+EOF
+
+# 2. BUILD AND RESTART
+echo "🔨 Rebuilding project..."
+npm run build
+
+echo "🔄 Restarting server..."
+pm2 restart all
+
+echo "✅ HTML title fixed to PlayAgario.fun!"

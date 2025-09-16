@@ -1,3 +1,9 @@
+#!/bin/bash
+
+echo "🔧 Removing default name, showing placeholder..."
+
+# Fix app.js - NO default name generation
+cat > src/client/js/app.js << 'EOF'
 var io = require('socket.io-client');
 var render = require('./render');
 var ChatClient = require('./chat-client');
@@ -364,3 +370,78 @@ function resize() {
 
     socket.emit('windowResized', { screenWidth: global.screen.width, screenHeight: global.screen.height });
 }
+EOF
+
+# Update HTML with better placeholder
+cat > src/client/index.html << 'EOF'
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PlayAgario.fun - SOL Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="css/main.css" />
+    <audio id="split_cell" src="audio/split.mp3"></audio>
+    <audio id="spawn_cell" src="audio/spawn.mp3"></audio>
+</head>
+<body>
+    <div id="gameAreaWrapper">
+        <div id="status">
+            <span class="title">🏆 Leaderboard</span>
+        </div>
+        <div class="chatbox" id="chatbox">
+            <ul id="chatList" class="chat-list"></ul>
+            <input id="chatInput" type="text" class="chat-input" placeholder="Type your message..." maxlength="35" />
+        </div>
+        <div id="mobile">
+           <button id="split" class="split" style="font-size: 24px;">⚡</button>
+           <button id="feed" class="feed" style="font-size: 24px;">🎯</button>
+        </div>
+        <canvas tabindex="1" id="cvs"></canvas>
+    </div>
+    <div id="startMenuWrapper">
+        <div id="startMenu">
+            <p>💎 PlayAgario.fun</p>
+            <input type="text" tabindex="0" autofocus placeholder="Enter your name or SOL address" id="playerNameInput" maxlength="44" />
+            <b class="input-error">You must enter a name!</b>
+            <br />
+            <button id="startButton">PLAY GAME</button>
+            <button id="spectateButton">SPECTATE</button>
+            <button id="settingsButton">SETTINGS</button>
+            <br />
+            <div id="settings">
+                <h3>⚙️ Game Settings</h3>
+                <ul>
+                    <label><input id="visBord" type="checkbox"> Show border</label>
+                    <label><input id="showMass" type="checkbox"> Show mass</label>
+                    <label><input id="continuity" type="checkbox"> Continue moving off-screen</label>
+                    <label><input id="roundFood" type="checkbox" checked> Rounded food</label>
+                    <label><input id="darkMode" type="checkbox"> Dark mode</label>
+                </ul>
+            </div>
+            <div id="instructions">
+                <h3>📖 How to Play</h3>
+                <ul>
+                    <li>Enter your name or Solana wallet address</li>
+                    <li>Move your mouse to control your cell</li>
+                    <li>Eat food and smaller players to grow</li>
+                    <li>Press SPACE to split, W to eject mass</li>
+                    <li>Avoid larger players and viruses</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+EOF
+
+npm run build
+pm2 restart all
+
+echo "✅ FIXED!"
+echo "  • NO default name - placeholder visible"
+echo "  • Placeholder: 'Enter your name or SOL address'"
+echo "  • Must enter something to play"
+echo "  • Menu disappears properly"
