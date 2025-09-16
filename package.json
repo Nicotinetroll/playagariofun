@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "@types/sat": "^0.0.32",
-    "plugin-error": "^2.0.1"
+    "plugin-error": "^2.0.1",
+    "webpack-cli": "^6.0.1"
   }
 }

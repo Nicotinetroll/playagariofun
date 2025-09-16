@@ -4,7 +4,7 @@ const fs = require('fs');
 const config = require('../../config');
 
 const sqlInfo = config.sqlinfo;
-const dbPath = path.join(__dirname, 'db', sqlInfo.fileName);
+const dbPath = path.join(__dirname, '../../', sqlInfo.fileName);
 
 // Ensure the database folder exists
 const dbFolder = path.dirname(dbPath);
