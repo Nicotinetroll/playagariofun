@@ -1,3 +1,57 @@
+#!/bin/bash
+
+echo "🔧 Fixing spawn issues and keeping map always small..."
+
+# 1. Update config - always small map
+cat > config.js << 'EOF'
+module.exports = {
+    host: "0.0.0.0",
+    port: 3000,
+    logpath: "logger.php",
+    foodMass: 1,
+    fireFood: 20,
+    limitSplit: 16,
+    defaultPlayerMass: 10,
+    virus: {
+        fill: "#33ff33",
+        stroke: "#19D119",
+        strokeWidth: 20,
+        defaultMass: {
+            from: 100,
+            to: 150
+        },
+        splitMass: 180,
+        uniformDisposition: false,
+    },
+    gameWidth: 3000,  // Always small
+    gameHeight: 3000, // Always small
+    adminPass: "kokot",
+    gameMass: 15000,
+    maxFood: 400,
+    maxVirus: 20,
+    slowBase: 4.5,
+    logChat: 0,
+    networkUpdateFactor: 30,
+    maxHeartbeatInterval: 5000,
+    foodUniformDisposition: false,
+    newPlayerInitialPosition: "random",
+    massLossRate: 1,
+    minMassLoss: 50,
+    maxPlayers: 30,
+    // Round settings
+    roundTime: 600000,  // 10 minutes
+    roundEndWarning: 60000,
+    roundBreakTime: 60000,
+    minPlayersToStart: 5,
+    enableRounds: true,
+    sqlinfo: {
+      fileName: "db.sqlite3",
+    }
+};
+EOF
+
+# 2. Create simple working server - play immediately, reset at 5 players
+cat > src/server/server.js << 'EOF'
 /*jslint bitwise: true, node: true */
 'use strict';
 
@@ -403,3 +457,19 @@ console.log('[GAME] Practice mode - need', config.minPlayersToStart, 'players fo
 http.listen(config.port, config.host, () => {
     console.log('[DEBUG] Listening on', config.host + ':' + config.port);
 });
+EOF
+
+echo "🔨 Building..."
+npm run build
+
+echo "🔄 Restarting..."
+pm2 restart all
+
+echo "✅ Fixed!"
+echo ""
+echo "Now the game:"
+echo "  ✅ Map is ALWAYS 3000x3000 (small)"
+echo "  ✅ Players spawn immediately"
+echo "  ✅ Player count updates correctly"
+echo "  ✅ At 5 players: scores reset, competitive round starts"
+echo "  ✅ Timer shows correct player count"

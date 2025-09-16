@@ -9,6 +9,12 @@
     <audio id="spawn_cell" src="audio/spawn.mp3"></audio>
 </head>
 <body>
+    <!-- Round Timer at Top -->
+    <div id="roundTimer" style="display: none;">
+        <span class="round-status">WAITING FOR PLAYERS</span>
+        <span class="time-display">0/5 Players</span>
+    </div>
+    
     <div id="gameAreaWrapper">
         <div id="status">
             <span class="title">🏆 Leaderboard</span>
@@ -23,6 +29,7 @@
         </div>
         <canvas tabindex="1" id="cvs"></canvas>
     </div>
+    
     <div id="startMenuWrapper">
         <div id="startMenu">
             <p>💎 PlayAgario.fun</p>
@@ -33,6 +40,20 @@
             <button id="spectateButton">SPECTATE</button>
             <button id="settingsButton">SETTINGS</button>
             <br />
+            
+            <!-- Social Media Buttons -->
+            <div class="social-buttons">
+                <a href="https://twitter.com/playagariofun" target="_blank" class="social-btn twitter">
+                    <span>🐦</span> Twitter
+                </a>
+                <a href="https://pump.fun/playagario" target="_blank" class="social-btn pumpfun">
+                    <span>🚀</span> Pump.fun
+                </a>
+                <a href="https://t.me/playagariofun" target="_blank" class="social-btn telegram">
+                    <span>💬</span> Telegram
+                </a>
+            </div>
+            
             <div id="settings">
                 <h3>⚙️ Game Settings</h3>
                 <ul>
@@ -46,15 +67,26 @@
             <div id="instructions">
                 <h3>📖 How to Play</h3>
                 <ul>
+                    <li>Minimum 5 players needed to start a round</li>
+                    <li>Each round lasts 10 minutes</li>
                     <li>Enter your name or Solana wallet address</li>
                     <li>Move your mouse to control your cell</li>
-                    <li>Eat food and smaller players to grow</li>
                     <li>Press SPACE to split, W to eject mass</li>
-                    <li>Avoid larger players and viruses</li>
                 </ul>
             </div>
         </div>
     </div>
+    
+    <!-- Winner Modal -->
+    <div class="winner-modal" id="winnerModal">
+        <div class="winner-content">
+            <h2>🏆 ROUND WINNER 🏆</h2>
+            <div class="winner-name" id="winnerName">Player Name</div>
+            <div class="winner-mass" id="winnerMass">Mass: 0</div>
+            <div class="next-round">Next round starting in <span id="countdown">60</span> seconds...</div>
+        </div>
+    </div>
+    
     <script src="//code.jquery.com/jquery-2.2.0.min.js"></script>
     <script src="js/app.js"></script>
 </body>

@@ -506,3 +506,312 @@ button:focus {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(102, 126, 234, 0.5);
 }
+
+/* Round Timer */
+#roundTimer {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    padding: 15px 30px;
+    border-radius: 20px;
+    color: #2d3748;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+}
+
+#roundTimer .round-number {
+    color: #667eea;
+    font-size: 14px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+#roundTimer .time-remaining {
+    font-size: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#roundTimer.warning {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Winner Modal */
+.winner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.winner-modal.show {
+    display: flex;
+    animation: fadeIn 0.5s ease;
+}
+
+.winner-content {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    padding: 40px;
+    border-radius: 30px;
+    text-align: center;
+    max-width: 500px;
+    animation: slideUp 0.5s ease;
+}
+
+.winner-content h2 {
+    font-size: 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+}
+
+.winner-content .winner-name {
+    font-size: 28px;
+    color: #2d3748;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+.winner-content .winner-mass {
+    font-size: 20px;
+    color: #667eea;
+    margin-bottom: 20px;
+}
+
+.winner-content .next-round {
+    font-size: 16px;
+    color: #4a5568;
+    margin-top: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Round Timer Styles */
+#roundTimer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    padding: 15px 30px;
+    border-radius: 25px;
+    color: #2d3748;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    min-width: 250px;
+}
+
+#roundTimer .round-status {
+    display: block;
+    font-size: 14px;
+    color: #667eea;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#roundTimer .time-display {
+    font-size: 24px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#roundTimer.waiting {
+    background: rgba(255, 193, 7, 0.95);
+}
+
+#roundTimer.waiting .round-status {
+    color: #856404;
+}
+
+#roundTimer.active {
+    background: rgba(40, 167, 69, 0.95);
+}
+
+#roundTimer.active .round-status {
+    color: #155724;
+}
+
+#roundTimer.warning {
+    animation: pulse 1s infinite;
+    background: rgba(220, 53, 69, 0.95);
+}
+
+#roundTimer.warning .round-status {
+    color: #721c24;
+}
+
+#roundTimer.break {
+    background: rgba(108, 117, 125, 0.95);
+}
+
+#roundTimer.break .round-status {
+    color: #1b1e21;
+}
+
+@keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Social Media Buttons */
+.social-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.social-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.social-btn span {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.social-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.social-btn.twitter {
+    background: linear-gradient(135deg, #1DA1F2 0%, #1877F2 100%);
+}
+
+.social-btn.twitter:hover {
+    background: linear-gradient(135deg, #1a91da 0%, #1668d9 100%);
+}
+
+.social-btn.pumpfun {
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF3838 100%);
+}
+
+.social-btn.pumpfun:hover {
+    background: linear-gradient(135deg, #ff5252 0%, #ff1f1f 100%);
+}
+
+.social-btn.telegram {
+    background: linear-gradient(135deg, #0088cc 0%, #0066cc 100%);
+}
+
+.social-btn.telegram:hover {
+    background: linear-gradient(135deg, #0077b3 0%, #0055b3 100%);
+}
+
+/* Winner Modal Improvements */
+.winner-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.winner-modal.show {
+    display: flex;
+    animation: fadeIn 0.5s ease;
+}
+
+.winner-content {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    padding: 50px;
+    border-radius: 30px;
+    text-align: center;
+    max-width: 500px;
+    animation: slideUp 0.5s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.winner-content h2 {
+    font-size: 36px;
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 25px;
+}
+
+.winner-content .winner-name {
+    font-size: 32px;
+    color: #2d3748;
+    font-weight: bold;
+    margin: 20px 0;
+}
+
+.winner-content .winner-mass {
+    font-size: 24px;
+    color: #667eea;
+    margin-bottom: 30px;
+}
+
+.winner-content .next-round {
+    font-size: 18px;
+    color: #4a5568;
+    margin-top: 20px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}

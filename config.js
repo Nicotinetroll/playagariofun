@@ -17,12 +17,12 @@ module.exports = {
         splitMass: 180,
         uniformDisposition: false,
     },
-    gameWidth: 3000,  // Reduced from 5000
-    gameHeight: 3000, // Reduced from 5000
+    gameWidth: 3000,  // Always small
+    gameHeight: 3000, // Always small
     adminPass: "kokot",
-    gameMass: 15000,  // Reduced proportionally
-    maxFood: 400,     // Reduced for smaller map
-    maxVirus: 20,     // Reduced for smaller map
+    gameMass: 15000,
+    maxFood: 400,
+    maxVirus: 20,
     slowBase: 4.5,
     logChat: 0,
     networkUpdateFactor: 30,
@@ -32,6 +32,12 @@ module.exports = {
     massLossRate: 1,
     minMassLoss: 50,
     maxPlayers: 30,
+    // Round settings
+    roundTime: 600000,  // 10 minutes
+    roundEndWarning: 60000,
+    roundBreakTime: 60000,
+    minPlayersToStart: 5,
+    enableRounds: true,
     sqlinfo: {
       fileName: "db.sqlite3",
     }
