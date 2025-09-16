@@ -92,39 +92,71 @@ const formatNameForDisplay = (name) => {
 }
 
 const drawCells = (cells, playerConfig, toggleMassState, borders, graph) => {
+    // Skin URLs
+    const skins = [
+        "https://i.imgur.com/zAOoOR6.png",
+        "https://i.imgur.com/yDG1S2F.png",
+        "https://i.imgur.com/a3a7lbR.png",
+        "https://i.imgur.com/3giEfRY.png"
+    ];
+    
+    const skinCache = window.skinCache || (window.skinCache = {});
+    const playerSkins = window.playerSkins || (window.playerSkins = {});
+    
     for (let cell of cells) {
-        // Draw the cell itself
+        // Draw cell background
         graph.fillStyle = cell.color;
         graph.strokeStyle = cell.borderColor;
         graph.lineWidth = 6;
-        if (cellTouchingBorders(cell, borders)) {
-            // Asssemble the cell from lines
-            drawCellWithLines(cell, borders, graph);
-        } else {
-            // Border corrections are not needed, the cell can be drawn as a circle
-            drawRoundObject(cell, cell.radius, graph);
+        
+        graph.beginPath();
+        graph.arc(cell.x, cell.y, cell.radius, 0, Math.PI * 2);
+        graph.closePath();
+        graph.fill();
+        graph.stroke();
+        
+        // Try to draw skin
+        if (cell.name) {
+            if (!playerSkins[cell.name]) {
+                const skinUrl = skins[Math.floor(Math.random() * skins.length)];
+                playerSkins[cell.name] = skinUrl;
+                
+                if (!skinCache[skinUrl]) {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload = () => skinCache[skinUrl] = img;
+                    img.src = skinUrl;
+                }
+            }
+            
+            const img = skinCache[playerSkins[cell.name]];
+            if (img && img.complete) {
+                graph.save();
+                graph.beginPath();
+                graph.arc(cell.x, cell.y, cell.radius * 0.9, 0, Math.PI * 2);
+                graph.closePath();
+                graph.clip();
+                graph.drawImage(img, cell.x - cell.radius * 0.9, cell.y - cell.radius * 0.9, cell.radius * 1.8, cell.radius * 1.8);
+                graph.restore();
+            }
         }
-
-        // Format name for display
-        let displayName = formatNameForDisplay(cell.name);
-
-        // Draw the name of the player
+        
+        // Draw name
         let fontSize = Math.max(cell.radius / 3, 12);
         graph.lineWidth = playerConfig.textBorderSize;
         graph.fillStyle = playerConfig.textColor;
         graph.strokeStyle = playerConfig.textBorder;
         graph.miterLimit = 1;
-        graph.lineJoin = 'round';
-        graph.textAlign = 'center';
-        graph.textBaseline = 'middle';
-        graph.font = 'bold ' + fontSize + 'px sans-serif';
-        graph.strokeText(displayName, cell.x, cell.y);
-        graph.fillText(displayName, cell.x, cell.y);
-
-        // Draw the mass (if enabled)
+        graph.lineJoin = "round";
+        graph.textAlign = "center";
+        graph.textBaseline = "middle";
+        graph.font = "bold " + fontSize + "px sans-serif";
+        graph.strokeText(cell.name, cell.x, cell.y);
+        graph.fillText(cell.name, cell.x, cell.y);
+        
         if (toggleMassState === 1) {
-            graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
-            if (displayName.length === 0) fontSize = 0;
+            graph.font = "bold " + Math.max(fontSize / 3 * 2, 10) + "px sans-serif";
+            if (cell.name.length === 0) fontSize = 0;
             graph.strokeText(Math.round(cell.mass), cell.x, cell.y + fontSize);
             graph.fillText(Math.round(cell.mass), cell.x, cell.y + fontSize);
         }
@@ -180,4 +212,52 @@ module.exports = {
     drawErrorMessage,
     drawGrid,
     drawBorder
+};
+
+// Cache pre načítané obrázky
+const skinCache = {};
+
+const loadSkin = (url, callback) => {
+    if (skinCache[url]) {
+        callback(skinCache[url]);
+        return;
+    }
+    
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        skinCache[url] = img;
+        callback(img);
+    };
+    img.onerror = () => {
+        console.error('Failed to load skin:', url);
+        callback(null);
+    };
+    img.src = url;
+};
+
+// Uprav drawCells funkciu
+const originalDrawCells = module.exports.drawCells;
+module.exports.drawCells = function(cells, playerConfig, toggleMassState, borders, graph) {
+    // Najprv vykresli normálne bunky
+    originalDrawCells(cells, playerConfig, toggleMassState, borders, graph);
+    
+    // Potom pridaj skiny
+    cells.forEach(cell => {
+        if (cell.skin) {
+            loadSkin(cell.skin, (img) => {
+                if (img) {
+                    const size = cell.radius * 2;
+                    graph.save();
+                    graph.globalAlpha = 0.8;
+                    graph.beginPath();
+                    graph.arc(cell.x, cell.y, cell.radius, 0, Math.PI * 2);
+                    graph.closePath();
+                    graph.clip();
+                    graph.drawImage(img, cell.x - cell.radius, cell.y - cell.radius, size, size);
+                    graph.restore();
+                }
+            });
+        }
+    });
 };

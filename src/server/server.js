@@ -100,6 +100,7 @@ function getGameStatus() {
 
 const addPlayer = (socket) => {
     var currentPlayer = new mapUtils.playerUtils.Player(socket.id);
+    const skinData = require("./skins");
 
     socket.on('gotit', function (clientPlayerData) {
         console.log('[INFO] Player ' + (clientPlayerData.name || 'unnamed') + ' connecting!');
@@ -115,6 +116,7 @@ const addPlayer = (socket) => {
             // No validation - accept anything
             const playerName = clientPlayerData.name || '';
             currentPlayer.name = playerName;
+        currentPlayer.skin = skinData.getRandomSkin();
             currentPlayer.screenWidth = clientPlayerData.screenWidth;
             currentPlayer.screenHeight = clientPlayerData.screenHeight;
             currentPlayer.target = { x: 0, y: 0 };

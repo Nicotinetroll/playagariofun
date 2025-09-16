@@ -17,12 +17,12 @@ module.exports = {
         splitMass: 180,
         uniformDisposition: false,
     },
-    gameWidth: 2500,            // ZMENA - polovičná šírka
-    gameHeight: 2500,           // ZMENA - polovičná výška
+    gameWidth: 3750,            // ZMENA - zväčšené o 50%
+    gameHeight: 3750,           // ZMENA - zväčšené o 50%
     adminPass: "kokot",
-    gameMass: 10000,            // ZMENA - menej masy pre menšiu mapu
-    maxFood: 500,               // ZMENA - menej jedla pre menšiu mapu
-    maxVirus: 25,               // ZMENA - menej vírusov pre menšiu mapu
+    gameMass: 15000,            // ZMENA - viac masy pre väčšiu mapu
+    maxFood: 750,               // ZMENA - viac jedla pre väčšiu mapu
+    maxVirus: 35,               // ZMENA - viac vírusov pre väčšiu mapu
     slowBase: 4.5,
     logChat: 0,
     networkUpdateFactor: 40,
@@ -35,6 +35,7 @@ module.exports = {
     minPlayersToStart: 3,
     roundTime: 120000,          // 2 minúty
     roundBreakTime: 30000,      // 30 sekúnd prestávka
+    spectatorZoom: 2.5,         // NOVÉ - zoom pre spectator mode
     sqlinfo: {
       fileName: "db.sqlite3",
     }

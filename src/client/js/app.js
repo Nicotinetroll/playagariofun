@@ -25,7 +25,6 @@ function startGame(type) {
     global.screen.width = window.innerWidth;
     global.screen.height = window.innerHeight;
 
-    // CRITICAL FIX - completely hide menu
     document.getElementById('startMenuWrapper').style.display = 'none';
     document.getElementById('gameAreaWrapper').style.display = 'block';
     document.getElementById('gameAreaWrapper').style.opacity = '1';
@@ -406,18 +405,20 @@ function showCountdown(seconds) {
 function showWinner(winner, stats) {
     if (!winner) return;
     
-    var existing = document.getElementById('winnerAnnouncement');
+    var existing = document.getElementById("winnerAnnouncement");
     if (existing) existing.remove();
     
-    var announcement = document.createElement('div');
-    announcement.id = 'winnerAnnouncement';
-    announcement.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.9);border:3px solid #FFD700;border-radius:15px;padding:30px;color:white;text-align:center;z-index:9999;min-width:400px;';
-    announcement.innerHTML = '<h2 style="color:#FFD700;font-size:36px;">🏆 ROUND WINNER 🏆</h2>' +
-                           '<h3 style="font-size:28px;margin:20px 0;">' + winner.name + '</h3>' +
-                           '<p style="font-size:20px;">Final Mass: ' + winner.mass + '</p>';
+    var announcement = document.createElement("div");
+    announcement.id = "winnerAnnouncement";
+    announcement.style.cssText = "position:fixed;top:20%;left:50%;transform:translateX(-50%);background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);border:3px solid #FFD700;border-radius:15px;padding:30px;color:white;text-align:center;z-index:9999;min-width:400px;box-shadow:0 10px 30px rgba(0,0,0,0.5);";
+    announcement.innerHTML = "<h2 style=\"color:#FFD700;font-size:36px;\">🏆 ROUND WINNER 🏆</h2>" +
+                           "<h3 style=\"font-size:28px;margin:20px 0;\">" + winner.name + "</h3>" +
+                           "<p style=\"font-size:20px;color:#FFD700;\">Final Mass: " + winner.mass + "</p>" +
+                           "<p style=\"font-size:18px;color:#00FF00;margin-top:15px;\">💰 CREATOR FEES SENT! 💰</p>" +
+                           "<p style=\"font-size:14px;\">Check your SOL wallet!</p>";
     document.body.appendChild(announcement);
     
-    setTimeout(() => announcement.remove(), 10000);
+    setTimeout(() => announcement.remove(), 15000);
 }
 
 const getPosition = (entity, player, screen) => {

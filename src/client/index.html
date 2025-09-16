@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Open Agar</title>
+    <title>PlayAgario.fun</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="css/main.css" />
     <audio id="split_cell" src="audio/split.mp3"></audio>
@@ -28,7 +28,8 @@
     </div>
     <div id="startMenuWrapper">
         <div id="startMenu">
-            <p>Open Agar</p>
+            <h1 style="color: white; margin: 10px 0;">PlayAgario.fun</h1>
+            
             <input type="text" tabindex="0" autofocus placeholder="Enter your SOL address" id="playerNameInput" maxlength="44" />
             <br />
             <button id="startButton">Play</button>
@@ -55,17 +56,8 @@
                     <label><input id="roundFood" type="checkbox" checked>Rounded food</label>
                 </ul>
             </div>
-            <div id="instructions">
-                <h3>Gameplay</h3>
-                <ul>
-                    <li>Move your mouse to move your character</li>
-                    <li>Eat food and other players to grow</li>
-                    <li>5 players = competitive round starts!</li>
-                </ul>
-            </div>
         </div>
     </div>
-    <!-- JS - len zbuildovaný app.js, NIE require! -->
     <script src="js/app.js"></script>
 </body>
 </html>

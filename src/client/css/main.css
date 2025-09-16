@@ -962,3 +962,30 @@ button:focus {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 136, 204, 0.4);
 }
+
+/* Creator fees banner */
+#startMenu h1 {
+    color: #764ba2;
+    font-size: 36px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+#startMenu h3 {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Winner announcement with SOL info */
+#winnerAnnouncement {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+#winnerAnnouncement p {
+    color: #FFD700;
+    font-weight: bold;
+}
