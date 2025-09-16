@@ -17,15 +17,15 @@ module.exports = {
         splitMass: 180,
         uniformDisposition: false,
     },
-    gameWidth: 2500,   // Polovičná mapa
-    gameHeight: 2500,  // Polovičná mapa
+    gameWidth: 2500,
+    gameHeight: 2500,
     adminPass: "kokot",
-    gameMass: 20000,
-    maxFood: 300,      // Menej jedla na menšej mape
-    maxVirus: 15,      // Menej vírusov
+    gameMass: 15000,  // Znížené pre lepší výkon
+    maxFood: 250,     // Menej jedla = lepší výkon
+    maxVirus: 10,     // Menej vírusov
     slowBase: 4.5,
     logChat: 0,
-    networkUpdateFactor: 60,
+    networkUpdateFactor: 25,  // Menej network updatov
     maxHeartbeatInterval: 5000,
     foodUniformDisposition: true,
     newPlayerInitialPosition: "farthest",

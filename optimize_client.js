@@ -1,15 +1,20 @@
 const fs = require('fs');
 
-// Optimalizuj app.js bundle
-let appBundle = fs.readFileSync('bin/client/js/app.js', 'utf8');
+// Pridaj optimalizácie do klienta
+const clientOptimizations = `
+// Reduce draw calls
+let lastDrawTime = Date.now();
+const MIN_DRAW_INTERVAL = 16; // Max 60 FPS
 
-// Zníž FPS na klientovi ak je to možné
-if (appBundle.includes('window.requestAnimFrame')) {
-    appBundle = appBundle.replace(
-        'window.setTimeout(callback, 1000 / 60);',
-        'window.setTimeout(callback, 1000 / 30);' // 30 FPS namiesto 60
-    );
+// Cache calculations
+let cachedLeaderboard = null;
+let leaderboardCacheTime = 0;
+`;
+
+// Aplikuj ak existuje bundle
+if (fs.existsSync('bin/client/js/app.js')) {
+    let client = fs.readFileSync('bin/client/js/app.js', 'utf8');
+    client = clientOptimizations + client;
+    fs.writeFileSync('bin/client/js/app.js', client);
+    console.log('Client optimized!');
 }
-
-fs.writeFileSync('bin/client/js/app.js', appBundle);
-console.log('Client optimized!');
