@@ -26,7 +26,7 @@ let leaderboardChanged = false;
 
 const Vector = SAT.Vector;
 
-app.use(express.static(__dirname + '/../client'));
+app.use(express.static(__dirname + '/../../bin/client'));
 
 io.on('connection', function (socket) {
     let type = socket.handshake.query.type;
@@ -64,7 +64,6 @@ const addPlayer = (socket) => {
             socket.disconnect();
         } else {
             console.log('[INFO] Player ' + clientPlayerData.name + ' connected!');
-        currentPlayer.spawnProtection = Date.now(); // 3 second protection
             sockets[socket.id] = socket;
 
             const sanitizedName = clientPlayerData.name.replace(/(<([^>]+)>)/ig, '');
@@ -349,45 +348,6 @@ setInterval(gameloop, 1000);
 setInterval(sendUpdates, 1000 / config.networkUpdateFactor);
 
 // Don't touch, IP configurations.
-var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host || "0.0.0.0";
-var serverport = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || config.port || 3000;
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || config.host;
+var serverport = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || config.port;
 http.listen(serverport, ipaddress, () => console.log('[DEBUG] Listening on ' + ipaddress + ':' + serverport));
-
-
-
-
-
-
-
-
-
-
-
-// Game enhancement
-setTimeout(() => {
-    try {
-        const E = require('./player_enhanced');
-        const e = new E(map, config, io, sockets);
-        e.init();
-    } catch (x) {}
-}, 4000);
-
-
-// Game enhancement
-setTimeout(() => {
-    try {
-        const E = require('./player_enhanced');
-        const e = new E(map, config, io, sockets);
-        e.init();
-    } catch (x) {}
-}, 4000);
-
-
-// Game enhancement
-setTimeout(() => {
-    try {
-        const E = require('./player_enhanced');
-        const e = new E(map, config, io, sockets);
-        e.init();
-    } catch (x) {}
-}, 4000);

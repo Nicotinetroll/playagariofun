@@ -1,32 +1,37 @@
-module.exports = (isProduction) => ({
-    entry: "./src/client/js/app.js",
-    mode: isProduction ? 'production' : 'development',
-    output: {
-        library: "app",
-        filename: "app.js"
-    },
-    devtool: false,
-    module: {
-        rules: getRules(isProduction)
-    },
-});
+const path = require('path');
 
-function getRules(isProduction) {
-    if (isProduction) {
-        return [
-            {
-                test: /\.(?:js|mjs|cjs)$/,
-                exclude: /node_modules/,
-                use: {
-                    loader: 'babel-loader',
-                    options: {
-                        presets: [
-                            ['@babel/preset-env', { targets: "defaults" }]
-                        ]
+module.exports = function(isProduction) {
+    return {
+        entry: './src/client/js/app.js',
+        mode: isProduction ? 'production' : 'development',
+        output: {
+            filename: 'app.js',
+            path: path.resolve(__dirname, 'bin/client/js')
+        },
+        target: 'web',
+        module: {
+            rules: [
+                {
+                    test: /\.js$/,
+                    exclude: /node_modules/,
+                    use: {
+                        loader: 'babel-loader',
+                        options: {
+                            presets: ['@babel/preset-env']
+                        }
                     }
                 }
+            ]
+        },
+        resolve: {
+            fallback: {
+                "buffer": false,
+                "crypto": false,
+                "stream": false,
+                "path": false,
+                "fs": false,
+                "util": false
             }
-        ]
-    }
-    return [];
-}
+        }
+    };
+};

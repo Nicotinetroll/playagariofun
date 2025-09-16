@@ -12,9 +12,7 @@ const path = require("path");
 const PluginError = require('plugin-error');
 
 function getWebpackConfig() {
-    // Don't pass any library configuration
-    const config = require('./webpack.config.js');
-    return config(!process.env.IS_DEV);
+    return require('./webpack.config.js')(!process.env.IS_DEV)
 }
 
 function runServer(done) {

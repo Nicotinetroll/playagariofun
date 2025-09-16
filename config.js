@@ -6,7 +6,7 @@ module.exports = {
     fireFood: 20,
     limitSplit: 16,
     defaultPlayerMass: 10,
-	virus: {
+    virus: {
         fill: "#33ff33",
         stroke: "#19D119",
         strokeWidth: 20,
@@ -16,16 +16,16 @@ module.exports = {
         },
         splitMass: 180,
         uniformDisposition: false,
-	},
-    gameWidth: 5000,
-    gameHeight: 5000,
+    },
+    gameWidth: 2500,   // Polovičná mapa
+    gameHeight: 2500,  // Polovičná mapa
     adminPass: "kokot",
     gameMass: 20000,
-    maxFood: 1000,
-    maxVirus: 50,
+    maxFood: 300,      // Menej jedla na menšej mape
+    maxVirus: 15,      // Menej vírusov
     slowBase: 4.5,
     logChat: 0,
-    networkUpdateFactor: 40,
+    networkUpdateFactor: 60,
     maxHeartbeatInterval: 5000,
     foodUniformDisposition: true,
     newPlayerInitialPosition: "farthest",
