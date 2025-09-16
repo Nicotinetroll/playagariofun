@@ -19,7 +19,7 @@ module.exports = {
 	},
     gameWidth: 5000,
     gameHeight: 5000,
-    adminPass: "DEFAULT",
+    adminPass: "kokot",
     gameMass: 20000,
     maxFood: 1000,
     maxVirus: 50,
